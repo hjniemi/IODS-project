@@ -1,4 +1,3 @@
-
 # About the project
 
 *Write a short description about the course and add a link to your GitHub repository here. This is an R Markdown (.Rmd) file so you should use R Markdown syntax.*
@@ -9,5 +8,13 @@
 date()
 
 ```
-The text continues here.
 
+## Comments about the course
+
+I have some experience using R and Rstudio from previous statistics courses I have attended. I would like to learn more about statistics and especially modelling and different types of regression analysis so that I can better use them in my own research. I found the course by going through the doctoral program's course catalog.
+
+Because I have used R and also tidyverse before, I only skimmed through the first chapters of the R for Health Data Science book to refresh my memory. The book seems quite good. I like ggplot a lot - it's very powerful in creating different graphics. However, it is sometimes a bit complicated when you want to make some specific changes to a plot.
+
+## My github repository
+
+<https://github.com/hjniemi/IODS-project>.
