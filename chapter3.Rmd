@@ -1,0 +1,94 @@
+# Assignment 3 - Data analysis exercise
+
+First we load the required packages and the dataset.
+
+```{r}
+library(tidyverse)
+
+alc <- read.csv("data/alc.csv")
+
+colnames(alc)
+```
+
+The dataset in question is called "Student Performance Data Set" and describes student achievement in secondary education of two Portuguese schools. The data attributes include student grades, demographic, social and school related features and it was collected by using school reports and questionnaires. We are especially interested in the student's alcohol consumption. Alc_use tells about the alcohol use using a scale from 1 to 5 (5 is highest use). High alcohol use (high_use variable) is defined as alcohol use \>2.
+
+We are going to study which factors predict high alcohol use in students. I have chosen the following four variables, which might explain the alcohol consumption:
+
+-   Failures (number of past class failures). My hypothesis is that those who have more class failures are more likely to be those that have high alcohol use
+-   Absences (number of school absences). My hypothesis is that those who have more school absences are more likely to be those that have high alcohol use
+-   Sex. My hypothesis is that males drink more alcohol (based on population data)
+-   Age. My hypothesis is that older students drink more alcohol
+
+Next we are going to explore the distributions of the above mentioned variables and their relationships with alcohol consumption
+
+```{r}
+#Failures
+alc %>% ggplot(aes(failures, fill=high_use)) + geom_bar()
+
+#Absences
+alc %>% ggplot(aes(absences, fill=high_use)) + geom_bar()
+
+#Sex
+alc %>% ggplot(aes(sex, fill=high_use)) + geom_bar()
+table(alc$sex, alc$high_use)
+
+#Age
+alc %>% ggplot(aes(high_use, age)) + geom_boxplot()
+```
+
+-   Failures: Most students have 0 failures. There seems to be a significantly larger proportion of students with high alcohol use among those with 1+ failures.
+-   Absences: Most students have just a few absences, but a larger proportion of those who have many absences seem to also have high alcohol use
+-   Sex: There are more females than males in the dataset, but the difference is small. It looks that a larger proportion of males have high alcohol use compared to females
+-   Age: It looks that those who have high alcohol use are older than those with low alcohol use
+
+Next we are going to make a logistic regression model to predict high alcohol use. We are going to use the above mentioned variables as the explanatory variables
+
+```{r}
+model <- glm(high_use ~ failures+absences+sex+age, family="binomial", data=alc)
+summary(model)
+
+cbind(OR=exp(coef(model)), exp(confint(model)))
+
+```
+
+From the model summary we can see that failures, absences and sex are significantly associated with high alcohol use in this model (p\<0.05) while age is not (p\>0.05). By using the exp function we can get the odds ratios from the model coefficients, which are log odds. From the error terms we can compute the confidence intervals.
+
+-   Failures: Every failure increases the odds of high alcohol use by 1.78 (95% CI 1.17-2.69)
+-   Absences: Every absence increases the odds of high alcohol use by 1.09 (1.05-1.15)
+-   Sex: Male sex increases the odds of high alcohol use by 2.72 (1.68-4.45)
+-   Age: One year increase in age increases the odds of high alcohol use by 1.11 (0.91-1.37), which is not a significant result because the confidence interval includes the value 1
+
+My hypotheses were correct except for the association of age, which was not significant in this model.
+
+We are going to make a final model using only the predictors that were significant (failures, absences, sex).
+
+```{r}
+finalmodel <- glm(high_use ~ failures+absences+sex, family="binomial", data=alc)
+summary(finalmodel)
+cbind(OR=exp(coef(finalmodel)), exp(confint(finalmodel)))
+```
+
+Next we are going to explore the predictive power of our model.
+
+```{r}
+probabilities <- predict(finalmodel, type = "response")
+# add the predicted probabilities to 'alc'
+alc <- mutate(alc, probability = probabilities)
+
+# use the probabilities to make a prediction of high_use
+alc <- mutate(alc, prediction = probability>0.5)
+
+# tabulate the target variable versus the predictions
+table(high_use = alc$high_use, prediction = alc$prediction)
+
+# define a loss function (mean prediction error)
+loss_func <- function(class, prob) {
+  n_wrong <- abs(class - prob) > 0.5
+  mean(n_wrong)
+}
+
+loss_func(class = alc$high_use, prob = alc$probability)
+
+```
+
+We can calculate that about 23% of the predictions were incorrect. I think this is a quite good result. By simple guessing or coin flipping we would get about 50% of the predictions correct, so the model is a good improvement.
