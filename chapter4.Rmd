@@ -1,0 +1,140 @@
+---
+---
+---
+
+# Assignment 4 - Data analysis exercise
+
+```{r}
+#Load the required packages
+library(tidyverse)
+library(MASS)
+library(corrplot)
+
+# load the data
+data("Boston")
+
+# explore the dataset
+dim(Boston)
+str(Boston)
+
+```
+
+The Boston data set contains information about housing values in suburbs of Boston. It contains data about 506 suburbs (rows) and 14 variables, for example crime rate, distance to employment centers and accessibility to highways. More information can be found at [`https://stat.ethz.ch/R-manual/R-devel/library/MASS/html/Boston.html`](https://stat.ethz.ch/R-manual/R-devel/library/MASS/html/Boston.html)`.`
+
+Next we will show a graphical overview of the data using paired plots and correlation plots, and summaries of the variables in the data.
+
+```{r}
+pairs(Boston)
+corrplot(cor(Boston), method="circle", type = "upper")
+summary(Boston)
+
+```
+
+We can make for example the following observations:
+
+-   chas (Charles River dummy variable) is categorical variable and the other are numerical ones
+-   Crime rate is positively correlated with accessibility to radial highways and property tax rate.
+-   Median value of homes (medv) is strongly and negatively correlated with lower status of the population, and positively correlated with rooms per dwelling
+-   There are also strong negative relationships between age of buildings and distance to employment centers and nitric oxide concetration and distance to employment centres
+-   Distribution of some of the variables is quite skewed, for example crim, zn, and rad
+
+Next we scale the data set in order to make it possible to analyse it using clustering analysis. When the data is scaled, the mean of every variable is 0. Then we divide the data to train and test sets.
+
+```{r}
+#Standardize the dataset
+boston_scaled <- as.data.frame(scale(Boston))
+
+#Summaries of the scaled variables
+summary(boston_scaled)
+
+#Create a categorical variable of the crime rate
+crime <- cut(boston_scaled$crim, breaks = quantile(boston_scaled$crim), include.lowest = TRUE, label = c("low", "med_low", "med_high", "high" ))
+
+# add the new categorical value to scaled data
+boston_scaled <- dplyr::select(boston_scaled, -crim)
+boston_scaled <- data.frame(boston_scaled, crime)
+
+#Divide the dataset to train and test sets, so that 80% of the data belongs to the train set
+ind <- sample(nrow(boston_scaled),  size = nrow(boston_scaled) * 0.8)
+train <- boston_scaled[ind,]
+test <- boston_scaled[-ind,]
+
+
+
+```
+
+Next we will fit the linear discriminant analysis on the train set using the categorical crime rate as the target variable and all the other variables in the data set as predictor variables
+
+```{r}
+lda.fit <- lda(crime ~ ., data = train)
+
+# the function for lda biplot arrows
+lda.arrows <- function(x, myscale = 1, arrow_heads = 0.1, color = "red", tex = 0.75, choices = c(1,2)){
+  heads <- coef(x)
+  arrows(x0 = 0, y0 = 0, 
+         x1 = myscale * heads[,choices[1]], 
+         y1 = myscale * heads[,choices[2]], col=color, length = arrow_heads)
+  text(myscale * heads[,choices], labels = row.names(heads), 
+       cex = tex, col=color, pos=3)
+}
+classes <- as.numeric(train$crime)
+
+#Draw the LDA (bi)plot
+plot(lda.fit, dimen = 2, col = classes, pch = classes)
+lda.arrows(lda.fit, myscale = 1)
+
+
+```
+
+Now we will predict the classes with the LDA model on the test data and examine the results.
+
+```{r}
+#Save the crime categories from the test set and then remove the categorical crime variable from the test dataset. 
+correct_classes <- test$crime
+test <- dplyr::select(test, -crime)
+
+#Predict classes with test data
+lda.pred <- predict(lda.fit, newdata = test)
+
+#Cross tabulate the results
+table(correct = correct_classes, predicted = lda.pred$class)
+```
+
+Our model classifies the suburbs with high crime category with 100% accuracy. Medium high and low categories are also classified with quite good accuracy. However, the medium low category is more spread out and the model seems to struggle with it.
+
+Finally, we will perform k-means clustering
+
+pairs(Boston, col = km\$cluster)
+
+```{r fig.height=10, fig.width=10}
+#Reload and standardize the Boston dataset
+data("Boston")
+boston_scaled <- as.data.frame(scale(Boston))
+
+#Make the euclidean distance matrix
+dist_eu <- dist(boston_scaled)
+
+#Summary of the distances
+summary(dist_eu)
+
+#Run k-means algorithm on the dataset using 3 clusters
+km <- kmeans(Boston, centers = 3)
+
+#Plot the Boston dataset with clusters
+pairs(Boston, col = km$cluster)
+
+#Investigate what is the optimal number of clusters (1-10)
+k_max <- 10
+
+#Calculate the total within sum of squares and visualize the results
+twcss <- sapply(1:k_max, function(k){kmeans(Boston, k)$tot.withinss})
+qplot(x = 1:k_max, y = twcss, geom = 'line')
+
+#Redo the clustering with the optimal number of clusters (2) and plot the results
+km <- kmeans(Boston, centers = 2)
+pairs(Boston, col = km$cluster)
+```
+
+By plotting the number of clusters vs. WCSS we can see that the greatest drop happens when the number of clusters is 2, so that seems to be the optimal number of clusters.
+
+From the pair plot we can see that the variables which seem to most affect the clustering are zn, indus, rad and tax.
