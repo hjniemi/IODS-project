@@ -1,0 +1,114 @@
+---
+title: "Chapter 5"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Assignment 5 - Data analysis exercise
+
+```{r}
+#Load the required packages
+library(tidyverse)
+library(GGally)
+library(FactoMineR)
+
+#Load the data
+human <- read.csv("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/human2.txt", sep = ",", header = T)
+
+#Explore the dataset
+summary(human)
+ggpairs(human)
+```
+
+The human dataset describes countries and their human development index and related properties, such as life expectancy, education and gender equality.
+
+The variables are the following:
+
+-   "GNI" = Gross National Income per capita. GNI is heavily right skewed. It is significantly negatively correlated with Mat.Mor and Ado.Birth and positively correlated with Life.Exp, Edu.Exp and Edu2.FM
+-   "Life.Exp" = Life expectancy at birth. It is left skewed and correlates negatively with Mat.Mor and Ado.Birth and positively with GNI, Edu2.FM, Edu.Exp
+-   "Edu.Exp" = Expected years of schooling. It seems to be near to a normal distribution. It is positively correlated with Edu2.FM, Life.Exp and GNI and negatively correlated with Mat.Mor and Ado.Birth
+-   "Mat.Mor" = Maternal mortality ratio is heavily left skewed and positively correlated with Ado.Birth and negatively with Edu2.FM, Edu.Exp, Life.Exp and GNI
+-   "Ado.Birth" = Adolescent birth rate is left skewed. It is correlated positively with Mat.Mor and negatively with Edu2.FM, Edu.Exp, Life.Exp and GNI
+-   "Edu2.FM" = Ratio of proportion of females with at least secondary education to proportion of males with at least secondary education. It has some left tail, but otherwise quite symmetrical. It is positively correlated with Edu.Exp, Life.Exp and GNI and negatively with Mat.Mor and Ado.Birth
+-   "Labo.FM" = Ratio of proportion of females in the labour force to proportion of males in the labour force. It is right skewed. It has no strong correlations
+-   "Parli.F" = Percetange of female representatives in parliament. It is a bit left skewed. It also has no strong correlations
+
+Next we are going to perform principal component analysis on the raw data.
+
+```{r fig.height=6, fig.width=6}
+#PCA with the SVD method
+pca_human <- prcomp(human)
+summary(pca_human)
+
+#Draw a biplot of the PCA and the original variables
+biplot(pca_human, choices = 1:2, cex = c(0.8, 1), col = c("grey40", "deeppink2"))
+```
+
+When using the raw data, practically all of the variability is captured by the first component, which is primarily influenced by the GNI variable, because it has the largest variance. We cannot easily make any conclusions about the data from this analysis.
+
+Next we are going to perform the same analysis but with standardized data.
+
+```{r fig.height=6, fig.width=6}
+#Standardize the variables
+human_std <- scale(human)
+summary(human_std)
+
+#Perform PCA again
+pca_human <- prcomp(human_std)
+pca_human
+summary(pca_human)
+
+#Biplot
+biplot(pca_human, choices = 1:2, cex = c(0.8, 1), col = c("grey40", "deeppink2"))
+```
+
+Now when using the standardized variables the results are spread out nicely and we can interpret them. In this analysis the first two components explain 54% and 16% (70% together) of the variability. The first component is affected positively by maternal mortality and adolescent birth rate and negatively by expected years of schooling, life expectancy, GNI and female education. Thus PC1 seems to reflect the general level of development of the countries (eg. things associated with a developing country vs. developed country). PC2 is affected mainly by the percentage of female representatives in the parliament and the amount of females in the labor force. Thus PC2 represents the station and participation of females in the society.
+
+Next we are going to analyse the tea dataset.
+
+```{r}
+#Load the tea dataset and convert its character variables to factors
+tea <- read.csv("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/tea.csv", stringsAsFactors = TRUE)
+
+#View the data
+#View(tea)
+str(tea)
+```
+
+The tea dataset contains information about a questionnaire on tea: 300 individuals were asked how they drink tea (18 questions) and what are their product's perception (12 questions). In addition, some personal details were asked (4 questions).
+
+We are going to choose certain variables for further analysis: "Tea" (what kind of tea are they drinking), "How" (with milk, lemon etc.), "how" (tea bag or not), "sugar" (with or without), "where" (chain store or tea shop), "lunch" (lunch or not lunch).
+
+```{r}
+#Select the variables of interest
+tea <- tea %>% dplyr::select(c("Tea", "How", "how", "sugar", "where", "lunch"))
+
+#Sumaries and plots of the variables
+summary(tea)
+pivot_longer(tea, cols = everything()) %>% 
+  ggplot(aes(value)) + facet_wrap("name", scales = "free") + geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
+```
+
+We can see that most people drink earl grey tea from tea bags alone in a chain store and not with lunch. Sugar and no sugar are pretty much 50/50.
+
+Next we are going to use Multiple Correspondence Analysis (MCA)
+
+```{r}
+#Multiple correspondence analysis
+mca <- MCA(tea, graph = FALSE)
+summary(mca)
+
+#Plot
+plot(mca, invisible=c("ind"), graph.type = "classic", habillage = "quali")
+```
+
+We can see that the first dimension accounts for 15% and the second dimension 14% of the inertia.
+
+Looks like the Dim 1 is related mainly to the place where the tea is bought from, eg. tea shop vs. chain store and also whether it is in tea bags or unpackaged. It is obvious that when purchasing tea from a tea shop the tea is not in tea bags.
+
+Dim 2 seems to be more related to the taste in tea, eg. type of tea and what is used with the tea.
